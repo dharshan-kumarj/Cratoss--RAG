@@ -14,7 +14,10 @@ pypdf
 # Embeddings
 sentence-transformers
 
-# LLM (HuggingFace Inference API)
+# LLM (Local inference via Ollama)
+langchain-ollama
+
+# HuggingFace (for embeddings)
 huggingface_hub
 
 # Vector store
