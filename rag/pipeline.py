@@ -23,11 +23,11 @@ from rag.retriever import Retriever
 
 
 # --- Configuration ---
-LLM_MODEL = "llama3.2:1b"       # Smaller & faster model for CPU
+LLM_MODEL = "llama3.2"          # Llama 3.2 3B (runs fast on GPU)
 MAX_NEW_TOKENS = 512
 TEMPERATURE = 0.3
 RELEVANCE_THRESHOLD = 0.25    # Chunks below this score are discarded
-TOP_K = 3                     # Reduced from 5 → 3 for faster inference
+TOP_K = 5                     # Number of chunks to retrieve
 
 
 # --- Prompt Template ---
