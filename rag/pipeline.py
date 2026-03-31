@@ -28,8 +28,8 @@ from rag.reranker import Reranker
 LLM_MODEL = "llama3.2"          # Llama 3.2 3B (runs fast on GPU)
 MAX_NEW_TOKENS = 512
 TEMPERATURE = 0.3
-RELEVANCE_THRESHOLD = 0.25    # Chunks below this score are discarded
-LOW_CONFIDENCE_THRESHOLD = 0.45  # Below this: low-confidence warning
+RELEVANCE_THRESHOLD = -10.0      # Chunks below this are discarded (inclusive of typos)
+LOW_CONFIDENCE_THRESHOLD = 1.0  # Chunks above this are high confidence
 TOP_K = 5                     # Number of chunks to retrieve
 RERAN_TOP_N = 3               # Chunks kept after reranking
 
@@ -39,9 +39,9 @@ def get_confidence_tier(max_score: float) -> str:
     Determine the confidence tier based on the top reranked chunk score.
 
     Tiers:
-      - "none"  (max_score < 0.25):  No relevant context found.
-      - "low"   (0.25 <= max_score < 0.45): Weakly matched context.
-      - "full"  (max_score >= 0.45): Strong match, full answer.
+      - "none"  (max_score < -10.0): No relevant context found.
+      - "low"   (-10.0 <= max_score < 1.0): Weakly matched or typo-heavy context.
+      - "full"  (max_score >= 1.0): Strong match, full answer.
 
     Args:
         max_score: The highest relevance/reranker score among candidate chunks.
@@ -61,13 +61,14 @@ def get_confidence_tier(max_score: float) -> str:
 RAG_PROMPT_TEMPLATE = """You are an expert assistant specializing in IoT (Internet of Things), 
 network protocols, embedded hardware, and cybersecurity.
 
-Answer the user's question based ONLY on the context provided below. 
 Follow these rules strictly:
-1. Use ONLY the information from the context to answer.
-2. If the context does not contain enough information to answer the question, 
-   say: "I don't have enough information about this in my documents."
-3. Be specific and cite which document the information comes from when possible.
-4. Keep your answer clear, concise, and well-structured.
+1. **Primary Source**: If the context below contains the information needed to answer, use it and cite the source: [Source X]. In this case, do NOT use any external knowledge or the "[General Knowledge Answer]" tag.
+2. **Technical Fallback**: ONLY if the context is missing or insufficient to answer an IoT-related, 
+   hardware, or programming question, you should use your own expert knowledge. 
+   In this case, you MUST prepend your answer with: "[General Knowledge Answer]"
+3. **Refuse Unrelated**: If the question is NOT related to IoT, hardware, or networking 
+   AND is not found in the context, say: "I don't have information on this, as it is outside my IoT expertise."
+4. **Structure**: Keep your answer technical, well-structured, and concise.
 
 --- CONTEXT ---
 {context}
@@ -208,46 +209,26 @@ class RAGPipeline:
             for _score, text, meta in reranked
         ]
 
-        # Step 4: Generate answer based on tier
+        # Step 4: Generate answer
+        context = self._format_context(reranked) if reranked else "No relevant documents found in the database."
+        
         if tier == "none":
-            # Tier 1 — No answer: skip LLM entirely
-            answer = "I don't have enough information in my documents to answer this question."
-            print(f"   ⚠️  No chunks passed relevance threshold — returning fallback answer.")
-            has_relevant = False
-
+            print(f"   ⚠️  No chunks passed relevance threshold — attempting IoT general knowledge fallback...")
         elif tier == "low":
-            # Tier 2 — Low confidence: call LLM but prepend warning
-            context = self._format_context(reranked)
             print(f"   ⚠️  Low confidence — generating with weakly matched context...")
-            print(f"   🤖 Generating answer with Llama 3.2...")
-
-            raw_answer = self.chain.invoke({
-                "context": context,
-                "question": question,
-            })
-            answer = (
-                "[Low confidence — answer based on weakly matched context]\n"
-                + raw_answer.strip()
-            )
-            has_relevant = True
-
-        else:
-            # Tier 3 — Full answer: normal flow
-            context = self._format_context(reranked)
-            print(f"   🤖 Generating answer with Llama 3.2...")
-
-            answer = self.chain.invoke({
-                "context": context,
-                "question": question,
-            })
-            has_relevant = True
+        
+        print(f"   🤖 Generating answer with Llama 3.2...")
+        answer = self.chain.invoke({
+            "context": context,
+            "question": question,
+        })
 
         return RAGResponse(
             question=question,
             answer=answer.strip(),
             source_documents=source_docs,
             relevance_scores=reranked_scores,
-            has_relevant_context=has_relevant,
+            has_relevant_context=(tier != "none"),
         )
 
 
@@ -283,13 +264,16 @@ def print_response(response: RAGResponse):
 # ============================================================
 
 if __name__ == "__main__":
+    print("💡 For interactive Q&A, run:  python main.py  (from project root)")
+    print("   Running built-in test queries...\n")
+
     # Initialize pipeline
     pipeline = RAGPipeline()
 
     # --- Test with in-domain queries ---
     test_queries = [
         # Should work well (in-domain)
-        "What is MQTT protocol and what are its key characteristics?",
+        "What is IoT?",
         "Explain the architecture of IoT networks according to NIST",
         "What are the main features of Arduino UNO R3?",
 

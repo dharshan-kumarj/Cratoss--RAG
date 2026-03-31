@@ -17,9 +17,9 @@ A complete, end-to-end RAG system that ingests IoT/network security PDFs, chunks
 5. **Retrieves** the most relevant chunks using hybrid search (BM25 + semantic + RRF fusion)
 6. **Reranks** candidates with a cross-encoder for precision
 7. **Evaluates confidence** through a 3-tier system (none / low / full)
-8. **Generates** an accurate, grounded answer using only the retrieved context
+8. **Generates** an accurate, grounded answer using the retrieved context, with an **IoT-specific fallback** to general knowledge if the database is missing technical data.
 
-> 💡 **Key Insight:** The LLM never makes up answers — it only responds based on your documents. If no relevant information is found, it says *"I don't have enough information."*
+> 💡 **Key Insight:** The system prioritizes your documents. If a question is about IoT/hardware but the answer isn't in your files, it uses the LLM's expert knowledge (clearly tagged). For non-technical/off-topic questions not in the context, it strictly refuses to answer.
 
 ---
 
@@ -90,6 +90,7 @@ A complete, end-to-end RAG system that ingests IoT/network security PDFs, chunks
 
 ```
 RAG-Cratoss/
+├── main.py                    # 🆕 Interactive Q&A loop (Primary entry point)
 ├── data/
 │   └── pdfs/
 │       ├── architecture/          # IoT architecture docs (NIST SP 800-183)
@@ -108,7 +109,7 @@ RAG-Cratoss/
 │   ├── reranker.py                # 🆕 Cross-encoder reranking
 │   └── pipeline.py                # Full RAG pipeline (hybrid → rerank → confidence → generate)
 ├── vectorstore/
-│   └── chroma_db/                 # Persisted ChromaDB vector store (577 chunks)
+│   └── chroma_db/                 # Persisted ChromaDB vector store (~600 chunks)
 ├── api/
 │   └── main.py                    # FastAPI endpoint (planned)
 ├── .env                           # Environment variables (optional)
@@ -130,7 +131,7 @@ RAG-Cratoss/
 | **Vector Store** | ChromaDB (persistent) | Local storage, cosine similarity |
 | **Keyword Search** | `rank_bm25` (BM25Okapi) | 🆕 Sparse keyword retrieval |
 | **Reranker** | `cross-encoder/ms-marco-MiniLM-L-6-v2` | 🆕 Cross-encoder reranking (local) |
-| **LLM** | Meta Llama 3.2 (3B) | Running locally via Ollama |
+| **LLM** | Meta Llama 3.2 (3B) | Local expert with IoT fallback logic |
 | **LLM Runtime** | Ollama | Local inference, GPU accelerated |
 | **API** | FastAPI + Uvicorn | REST endpoint (planned) |
 
@@ -196,15 +197,15 @@ ollama ps
 # Make sure Ollama is running
 ollama serve &
 
-# Run the RAG pipeline
-python rag/pipeline.py
+# Start the interactive Q&A session
+python main.py
 ```
 
 This will:
-1. Load the ChromaDB vector store (577 embedded document chunks)
+1. Load the ChromaDB vector store (~600 embedded document chunks)
 2. Initialize Llama 3.2 locally via Ollama
-3. Run 5 test queries (3 in-domain + 2 out-of-domain)
-4. Print answers with source citations
+3. Start a continuous loop where you can **type your questions interactively**
+4. Distinguish between document-based answers and general IoT knowledge fallback
 
 ### Run Individual Phases
 
@@ -264,7 +265,7 @@ Generates embeddings using Sentence Transformers and persists them in ChromaDB.
 - Processes chunks in batches of 50 to avoid memory issues
 - Persists the vector store to `vectorstore/chroma_db/`
 - Collection name: `rag_cratoss_docs`
-- **Result:** 577 document chunks embedded and stored
+- **Result:** ~600 document chunks embedded and stored
 
 ---
 
@@ -327,9 +328,9 @@ After reranking, the pipeline evaluates the **top chunk's score** to determine h
 
 | Tier | Condition | Behavior |
 |------|-----------|----------|
-| **NONE** | `max_score < 0.25` | ❌ Return fallback — **skip LLM entirely** |
-| **LOW** | `0.25 ≤ max_score < 0.45` | ⚠️ Call LLM, prepend `[Low confidence — answer based on weakly matched context]` |
-| **FULL** | `max_score ≥ 0.45` | ✅ Call LLM, return full answer with source citations |
+| **NONE** | `max_score < -10.0` | 🤖 **IoT Fallback**: Use LLM internal knowledge ONLY for IoT topics |
+| **LOW** | `-10.0 ≤ max_score < 1.0` | ⚠️ Call LLM with weakly matched context |
+| **FULL** | `max_score ≥ 1.0` | ✅ Call LLM with strong context and citations |
 
 The helper function `get_confidence_tier(max_score)` returns `"none"`, `"low"`, or `"full"`.
 
@@ -370,9 +371,9 @@ User Question
  NONE   LOW   FULL
    │     │     │
    ▼     ▼     ▼
- ❌    ⚠️+🤖  🤖
-Skip   Warn   Full
-LLM   +LLM   Answer
+ 🤖    ⚠️+🤖  🤖
+IoT    Weak  Full
+Fallback Context Answer
 ```
 
 **Key Configuration:**
@@ -382,8 +383,8 @@ LLM   +LLM   Answer
 | `LLM_MODEL` | `llama3.2` | Meta's Llama 3.2 3B via Ollama |
 | `MAX_NEW_TOKENS` | 512 | Maximum tokens in generated answer |
 | `TEMPERATURE` | 0.3 | Low temperature for factual answers |
-| `RELEVANCE_THRESHOLD` | 0.25 | Tier boundary: NONE vs LOW |
-| `LOW_CONFIDENCE_THRESHOLD` | 0.45 | 🆕 Tier boundary: LOW vs FULL |
+| `RELEVANCE_THRESHOLD` | -10.0 | Tier boundary: NONE vs LOW |
+| `LOW_CONFIDENCE_THRESHOLD` | 1.0 | 🆕 Tier boundary: LOW vs FULL |
 | `TOP_K` | 5 | Chunks retrieved by hybrid retriever |
 | `RERAN_TOP_N` | 3 | 🆕 Chunks kept after reranking |
 
@@ -397,34 +398,39 @@ LLM   +LLM   Answer
 
 | Tier | Score Range | Meaning | Pipeline Action |
 |------|-------------|---------|-----------------|
-| **FULL** | **≥ 0.45** | 🟢 High confidence — strong match | ✅ Full LLM answer |
-| **LOW** | **0.25 – 0.45** | 🟡 Moderate — weakly matched | ⚠️ LLM answer + warning prefix |
-| **NONE** | **< 0.25** | 🔴 No match — out-of-domain | ❌ Skip LLM → fallback |
+| **FULL** | **≥ 1.0** | 🟢 High confidence — strong match | ✅ Context Answer |
+| **LOW** | **-10.0 – 1.0** | 🟡 Moderate — weakly matched | ⚠️ Weakly Matched Answer |
+| **NONE** | **< -10.0** | 🤖 No match found | 🤖 IoT Fallback vs Refusal |
 
 ### Example Results
 
 **In-domain query:** *"What is MQTT protocol?"*
 | Result | Source File | Score | Tier |
 |--------|------------|-------|------|
-| #1 | `mqtt_protocol_spec.pdf` (Page 0) | 🟢 **0.6767** | FULL |
-| #2 | `mqtt_protocol_spec.pdf` (Page 2) | 🟢 **0.6174** | FULL |
-| #3 | `mqtt_protocol_spec.pdf` (Page 6) | 🟢 **0.5470** | FULL |
+| #1 | `mqtt_protocol_spec.pdf` (Page 0) | 🟢 **4.2500** | FULL |
+| #3 | `mqtt_protocol_spec.pdf` (Page 6) | 🟢 **2.6800** | FULL |
 
 > ✅ All results correctly from the MQTT spec. Tier: **FULL** — generates confident answer.
+
+**IoT Fallback Query:** *"How to blink an LED on ESP32?"*
+| Result | Source File | Score | Tier |
+|--------|------------|-------|------|
+| #1 | `arduino_uno_datasheet.pdf` | 🟡 **-8.4500** | LOW |
+
+> 🤖 Tier: **LOW/NONE** — Since the topic is IoT but the context is weak, the LLM uses its **General Knowledge Fallback** to provide the code.
 
 **Out-of-domain query:** *"What is the capital of India?"*
 | Result | Source File | Score | Tier |
 |--------|------------|-------|------|
-| #1 | `coap_protocol_rfc7252.pdf` (Page 3) | 🔴 **+0.0170** | NONE |
-| #2 | `coap_protocol_rfc7252.pdf` (Page 72) | 🔴 **-0.0059** | NONE |
+| #1 | `coap_protocol_rfc7252.pdf` (Page 3) | 🔴 **-11.0200** | NONE |
 
-> ❌ Tier: **NONE** — LLM is skipped entirely, pipeline returns *"I don't have enough information in my documents to answer this question."*
+> ❌ Tier: **NONE** — Outside IoT expertise and no context found. Pipeline refuses to answer to prevent hallucinations.
 
 ---
 
 ## 📚 Knowledge Base Documents
 
-The system currently has **577 embedded chunks** from these documents:
+The system currently has **~600 embedded chunks** from these documents:
 
 | Category | Document | Description |
 |----------|----------|-------------|
@@ -446,8 +452,8 @@ All pipeline parameters can be tuned in the respective files:
 LLM_MODEL = "llama3.2"              # Change to "llama3.2:1b" for faster CPU inference
 MAX_NEW_TOKENS = 512                # Max response length
 TEMPERATURE = 0.3                   # Higher = more creative, Lower = more factual
-RELEVANCE_THRESHOLD = 0.25          # Tier boundary: NONE vs LOW
-LOW_CONFIDENCE_THRESHOLD = 0.45     # 🆕 Tier boundary: LOW vs FULL
+RELEVANCE_THRESHOLD = -10.0          # Tier boundary: NONE vs LOW
+LOW_CONFIDENCE_THRESHOLD = 1.0      # 🆕 Tier boundary: LOW vs FULL
 TOP_K = 5                           # Number of chunks to retrieve
 RERAN_TOP_N = 3                     # 🆕 Chunks kept after reranking
 ```
