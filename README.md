@@ -476,7 +476,7 @@ CHUNK_OVERLAP = 200             # Overlap between consecutive chunks
 - [x] **Phase 6** — 🆕 Cross-encoder reranking
 - [x] **Phase 7** — 🆕 3-tier confidence-aware response system
 - [x] **Phase 8** — LLM generation pipeline (Llama 3.2 via Ollama)
-- [ ] **Phase 9** — FastAPI REST endpoint (`api/main.py`)
+- [x] **Phase 9** — FastAPI REST endpoint (`api/main.py`)
 - [ ] **Phase 10** — Web UI / Chat interface
 - [ ] **Phase 11** — Evaluation metrics (BLEU, ROUGE, faithfulness)
 - [ ] **Phase 12** — Multi-document conversation memory
