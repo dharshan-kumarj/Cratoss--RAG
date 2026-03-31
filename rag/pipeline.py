@@ -1,8 +1,9 @@
 """
 pipeline.py - RAG Generation Pipeline for RAG-Cratoss
 
-Takes a user query, retrieves relevant context from ChromaDB,
-filters by relevance score, and generates a grounded answer
+Takes a user query, retrieves relevant context using hybrid retrieval
+(BM25 + semantic search with RRF fusion), reranks with a cross-encoder,
+applies a 3-tier confidence check, and generates a grounded answer
 using Meta's Llama 3.2 running locally via Ollama.
 """
 
@@ -19,7 +20,8 @@ from langchain_ollama import ChatOllama
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from rag.retriever import Retriever
+from rag.hybrid_retriever import HybridRetriever
+from rag.reranker import Reranker
 
 
 # --- Configuration ---
@@ -27,7 +29,32 @@ LLM_MODEL = "llama3.2"          # Llama 3.2 3B (runs fast on GPU)
 MAX_NEW_TOKENS = 512
 TEMPERATURE = 0.3
 RELEVANCE_THRESHOLD = 0.25    # Chunks below this score are discarded
+LOW_CONFIDENCE_THRESHOLD = 0.45  # Below this: low-confidence warning
 TOP_K = 5                     # Number of chunks to retrieve
+RERAN_TOP_N = 3               # Chunks kept after reranking
+
+
+def get_confidence_tier(max_score: float) -> str:
+    """
+    Determine the confidence tier based on the top reranked chunk score.
+
+    Tiers:
+      - "none"  (max_score < 0.25):  No relevant context found.
+      - "low"   (0.25 <= max_score < 0.45): Weakly matched context.
+      - "full"  (max_score >= 0.45): Strong match, full answer.
+
+    Args:
+        max_score: The highest relevance/reranker score among candidate chunks.
+
+    Returns:
+        One of "none", "low", or "full".
+    """
+    if max_score < RELEVANCE_THRESHOLD:
+        return "none"
+    elif max_score < LOW_CONFIDENCE_THRESHOLD:
+        return "low"
+    else:
+        return "full"
 
 
 # --- Prompt Template ---
@@ -63,11 +90,12 @@ class RAGResponse:
 
 class RAGPipeline:
     """
-    Full RAG pipeline: Query → Retrieve → Filter → Generate.
+    Full RAG pipeline: Query → Hybrid Retrieve → Rerank → Confidence Check → Generate.
 
     Uses:
-      - ChromaDB retriever for semantic search
-      - Relevance score threshold to filter out irrelevant chunks
+      - HybridRetriever (BM25 + semantic search with RRF fusion)
+      - Cross-encoder reranker for precision reranking
+      - 3-tier confidence system (none / low / full)
       - Llama 3.2 (running locally via Ollama) for answer generation
     """
 
@@ -77,21 +105,27 @@ class RAGPipeline:
         max_new_tokens: int = MAX_NEW_TOKENS,
         temperature: float = TEMPERATURE,
         relevance_threshold: float = RELEVANCE_THRESHOLD,
+        low_confidence_threshold: float = LOW_CONFIDENCE_THRESHOLD,
         top_k: int = TOP_K,
+        rerank_top_n: int = RERAN_TOP_N,
     ):
         self.relevance_threshold = relevance_threshold
+        self.low_confidence_threshold = low_confidence_threshold
         self.top_k = top_k
+        self.rerank_top_n = rerank_top_n
 
-        # --- Initialize Retriever ---
+        # --- Initialize Hybrid Retriever + Reranker ---
         print("=" * 60)
         print("🔧 Initializing RAG Pipeline...")
         print("=" * 60)
-        self.retriever = Retriever(top_k=top_k)
+        self.retriever = HybridRetriever()
+        self.reranker = Reranker()
 
         # --- Initialize LLM (Local via Ollama) ---
         print(f"🤖 Loading LLM: {llm_model} (local via Ollama)")
         print(f"   Max tokens: {max_new_tokens} | Temperature: {temperature}")
         print(f"   Relevance threshold: {relevance_threshold}")
+        print(f"   Low-confidence threshold: {low_confidence_threshold}")
 
         self.llm = ChatOllama(
             model=llm_model,
@@ -110,48 +144,29 @@ class RAGPipeline:
 
         print("✅ RAG Pipeline ready!\n")
 
-    def _filter_by_relevance(
-        self, scored_results: List[tuple]
-    ) -> tuple:
+    def _format_context(
+        self, chunks: List[tuple]
+    ) -> str:
         """
-        Filters retrieved chunks by relevance score.
-
-        Args:
-            scored_results: List of (Document, score) tuples from retriever.
-
-        Returns:
-            Tuple of (filtered_docs, filtered_scores, has_relevant).
-        """
-        filtered_docs = []
-        filtered_scores = []
-
-        for doc, score in scored_results:
-            if score >= self.relevance_threshold:
-                filtered_docs.append(doc)
-                filtered_scores.append(score)
-
-        has_relevant = len(filtered_docs) > 0
-        return filtered_docs, filtered_scores, has_relevant
-
-    def _format_context(self, documents: List[Document]) -> str:
-        """
-        Formats retrieved documents into a context string for the prompt.
+        Formats reranked chunks into a context string for the prompt.
 
         Each chunk is labeled with its source file, category, and page number
         so the LLM can cite sources in its answer.
+
+        Args:
+            chunks: List of (score, doc_text, metadata) tuples.
         """
-        if not documents:
+        if not chunks:
             return "No relevant documents found."
 
         context_parts = []
-        for i, doc in enumerate(documents, 1):
-            meta = doc.metadata
+        for i, (score, text, meta) in enumerate(chunks, 1):
             source_info = (
                 f"[Source {i}: {meta.get('file_name', 'Unknown')} | "
                 f"Category: {meta.get('category', 'N/A')} | "
                 f"Page: {meta.get('page', 'N/A')}]"
             )
-            context_parts.append(f"{source_info}\n{doc.page_content}")
+            context_parts.append(f"{source_info}\n{text}")
 
         return "\n\n".join(context_parts)
 
@@ -160,10 +175,12 @@ class RAGPipeline:
         Run the full RAG pipeline on a question.
 
         Steps:
-          1. Retrieve top-K chunks with relevance scores
-          2. Filter chunks by relevance threshold
-          3. If relevant context found → generate answer with LLM
-          4. If no relevant context → return "no information" response
+          1. Hybrid retrieve (BM25 + semantic with RRF fusion)
+          2. Rerank with cross-encoder
+          3. Determine confidence tier from top reranked score
+          4. Tier "none"  → return fallback (skip LLM)
+             Tier "low"   → call LLM, prepend low-confidence warning
+             Tier "full"  → call LLM, return full answer
 
         Args:
             question: The user's natural-language question.
@@ -173,37 +190,63 @@ class RAGPipeline:
         """
         print(f"🔍 Query: \"{question}\"")
 
-        # Step 1: Retrieve with scores
-        scored_results = self.retriever.retrieve_with_scores(question, top_k=self.top_k)
+        # Step 1: Hybrid retrieval (BM25 + semantic + RRF)
+        hybrid_results = self.retriever.retrieve_hybrid(question, top_k=self.top_k)
 
-        # Step 2: Filter by relevance
-        filtered_docs, filtered_scores, has_relevant = self._filter_by_relevance(scored_results)
+        # Step 2: Rerank with cross-encoder
+        reranked = self.reranker.rerank(question, hybrid_results, top_n=self.rerank_top_n)
 
-        print(f"   📊 Retrieved {len(scored_results)} chunks, {len(filtered_docs)} passed threshold ({self.relevance_threshold})")
+        # Step 3: Determine confidence tier from top reranked score
+        max_score = reranked[0][0] if reranked else 0.0
+        tier = get_confidence_tier(max_score)
+        print(f"   🎯 Confidence tier: {tier.upper()} (max score: {max_score:.4f})")
 
-        # Step 3: Generate answer
-        if has_relevant:
-            context = self._format_context(filtered_docs)
+        # Extract scores and build source documents for the response
+        reranked_scores = [score for score, _text, _meta in reranked]
+        source_docs = [
+            Document(page_content=text, metadata=meta)
+            for _score, text, meta in reranked
+        ]
+
+        # Step 4: Generate answer based on tier
+        if tier == "none":
+            # Tier 1 — No answer: skip LLM entirely
+            answer = "I don't have enough information in my documents to answer this question."
+            print(f"   ⚠️  No chunks passed relevance threshold — returning fallback answer.")
+            has_relevant = False
+
+        elif tier == "low":
+            # Tier 2 — Low confidence: call LLM but prepend warning
+            context = self._format_context(reranked)
+            print(f"   ⚠️  Low confidence — generating with weakly matched context...")
+            print(f"   🤖 Generating answer with Llama 3.2...")
+
+            raw_answer = self.chain.invoke({
+                "context": context,
+                "question": question,
+            })
+            answer = (
+                "[Low confidence — answer based on weakly matched context]\n"
+                + raw_answer.strip()
+            )
+            has_relevant = True
+
+        else:
+            # Tier 3 — Full answer: normal flow
+            context = self._format_context(reranked)
             print(f"   🤖 Generating answer with Llama 3.2...")
 
             answer = self.chain.invoke({
                 "context": context,
                 "question": question,
             })
-        else:
-            answer = (
-                "I don't have enough information about this topic in my documents. "
-                "My knowledge base covers IoT architecture, network protocols "
-                "(MQTT, CoAP), and embedded hardware (Arduino, Raspberry Pi). "
-                "Please ask a question related to these topics."
-            )
-            print(f"   ⚠️  No chunks passed relevance threshold — returning fallback answer.")
+            has_relevant = True
 
         return RAGResponse(
             question=question,
             answer=answer.strip(),
-            source_documents=filtered_docs,
-            relevance_scores=filtered_scores,
+            source_documents=source_docs,
+            relevance_scores=reranked_scores,
             has_relevant_context=has_relevant,
         )
 
@@ -221,10 +264,14 @@ def print_response(response: RAGResponse):
 
     if response.has_relevant_context:
         print(f"\n📚 Sources ({len(response.source_documents)} chunks used):")
-        for i, (doc, score) in enumerate(zip(response.source_documents, response.relevance_scores), 1):
+        for i, (doc, score) in enumerate(
+            zip(response.source_documents, response.relevance_scores), 1
+        ):
             meta = doc.metadata
-            print(f"   [{i}] {meta.get('file_name')} | Page {meta.get('page')} | "
-                  f"Category: {meta.get('category')} | Score: {score:.4f}")
+            print(
+                f"   [{i}] {meta.get('file_name')} | Page {meta.get('page')} | "
+                f"Category: {meta.get('category')} | Score: {score:.4f}"
+            )
     else:
         print(f"\n⚠️  No relevant sources found in the knowledge base.")
 
