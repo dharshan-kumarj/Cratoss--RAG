@@ -23,6 +23,9 @@ huggingface_hub
 # Vector store
 chromadb
 
+# Hybrid retrieval (BM25)
+rank_bm25
+
 # API (for later)
 fastapi
 uvicorn
