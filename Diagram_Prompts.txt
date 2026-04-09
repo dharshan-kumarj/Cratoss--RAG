@@ -1,0 +1,181 @@
+<b>APPENDIX A: PROJECT FLOW DIAGRAM</b>
+
+<b>Prompt for AI Image Generation:</b>
+
+---
+
+<b>For DALL-E, Midjourney, or Stable Diffusion:</b>
+
+```
+Create a professional technical flowchart/diagram for a RAG (Retrieval-Augmented Generation) system called "RAG-Cratoss" for IoT and Network Security Question Answering.
+
+The diagram should show the complete 8-phase pipeline flow:
+
+1. INPUT: PDF Documents (IoT & Network Security) entering from left side
+   - Show 4 document categories: Architecture (NIST), Hardware (Arduino), Protocols (MQTT, CoAP), Security
+
+2. PHASE 1: PDF Loading (PyPDF) - document icon with loading symbol
+
+3. PHASE 2: Text Chunking - RecursiveCharacterTextSplitter (1000 chars, 200 overlap)
+   - Show splitting animation style
+
+4. PHASE 3: Embedding - Sentence Transformers (all-MiniLM-L6-v2)
+   - Show text transforming to 384-dim vectors
+
+5. PHASE 4: Vector Storage - ChromaDB Vector Database
+   - Show database cylinder icon with vector points
+
+6. QUERY INPUT: User Question from right side
+
+7. PHASE 5: Hybrid Retrieval (parallel arrows):
+   - BM25 Keyword Search (sparse retrieval) - magnifying glass with text
+   - Semantic Vector Search (dense retrieval) - brain/neural icon
+   - RRF Fusion - merging arrows combining both
+
+8. PHASE 6: Cross-Encoder Reranking (ms-marco-MiniLM-L-6-v2)
+   - Show scoring and reordering
+
+9. PHASE 7: 3-Tier Confidence Check
+   - NONE (red) - score < -10: Reject/Refuse
+   - LOW (yellow) - score -10 to 1: LLM with warning
+   - FULL (green) - score ≥ 1: LLM with full context
+
+10. PHASE 8: LLM Generation - Llama 3.2 via Ollama
+    - Show GPU/chip icon
+
+11. OUTPUT: Answer with Source Citations
+
+Style requirements:
+- Professional technical diagram style
+- Color scheme: Blue (#1E88E5) for main flow, Green (#4CAF50) for success path, Orange (#FF9800) for warnings, Red (#F44336) for rejection
+- White or light gray background
+- Clean sans-serif labels
+- Arrows showing flow direction (left to right for ingestion, right to left for query)
+- Include small icons/symbols for each component
+- Modern flat design style
+- High resolution suitable for academic paper (300 DPI)
+- The diagram should be wide format (landscape orientation)
+- Include a legend explaining the color coding
+- Font should be readable at small sizes
+
+Text to include in boxes:
+- "PDF Documents" → "PyPDF Loader" → "Recursive Splitter" → "MiniLM Embedder" → "ChromaDB"
+- "User Query" → "BM25 + Semantic Search" → "RRF Fusion" → "Cross-Encoder" → "Confidence Check" → "Llama 3.2" → "Answer + Citations"
+
+Show the complete end-to-end flow with clear visual hierarchy.
+```
+
+---
+
+<b>Simplified Prompt (for better results):</b>
+
+```
+Create a clean professional flowchart showing a RAG (Retrieval-Augmented Generation) system pipeline with these stages flowing left to right:
+
+[PDF Documents] → [PDF Loader] → [Text Chunker] → [Embedding Model] → [Vector Database]
+
+Below, show query flow:
+[User Question] → [Hybrid Retrieval: BM25 + Semantic] → [RRF Fusion] → [Cross-Encoder Reranker] → [Confidence Check (3 tiers)] → [LLM Generation] → [Answer with Citations]
+
+Use blue and green colors, professional technical style, wide landscape format, include arrows, labels, and simple icons. Academic paper quality.
+```
+
+---
+
+<b>APPENDIX B: ARCHITECTURE DIAGRAM PROMPT</b>
+
+```
+Create a system architecture diagram for RAG-Cratoss showing:
+
+Top layer: Data Sources (4 PDF categories)
+Middle layer: Ingestion Pipeline (3 phases) → Vector Store
+Bottom layer: Query Pipeline (5 phases) → LLM
+Right side: Output layer
+
+Use boxes, arrows, color coding, professional technical diagram style, wide format, clean modern design suitable for academic report.
+```
+
+---
+
+<b>APPENDIX C: CONFIDENCE TIER FLOWCHART PROMPT</b>
+
+```
+Create a decision flowchart for a 3-tier confidence system:
+
+Start at top: [Query Received]
+↓
+[Retrieve and Rerank] → [Get Max Score]
+↓
+{Diamond: Score ≥ 1.0?} 
+  YES → GREEN Box: "FULL Confidence → Generate Full Answer with Citations"
+  NO → {Diamond: Score ≥ -10.0?}
+       YES → YELLOW Box: "LOW Confidence → Generate with Warning + IoT Fallback"
+       NO → RED Box: "NONE Confidence → Refuse Query OR IoT Fallback (if IoT topic)"
+
+Use color-coded boxes (green/yellow/red), diamond decision nodes, arrows, professional flowchart style.
+```
+
+---
+
+<b>APPENDIX D: COMPONENT INTERACTION DIAGRAM PROMPT</b>
+
+```
+Create a component interaction diagram showing the RAG-Cratoss system components:
+
+Show these components with connecting arrows:
+- FastAPI (API layer) 
+- Pipeline Controller
+- HybridRetriever (BM25 + ChromaDB)
+- CrossEncoderReranker
+- ConfidenceEvaluator
+- OllamaClient (Llama 3.2)
+
+Show data flow:
+PDF Upload → Loader → Chunker → Embedder → ChromaDB
+User Query → API → Pipeline → Retriever → Reranker → Confidence → LLM → Response
+
+Use UML component diagram style, professional colors, wide format.
+```
+
+---
+
+<b>APPENDIX E: RETRIEVAL PIPELINE DETAIL PROMPT</b>
+
+```
+Create a detailed flowchart showing the hybrid retrieval process:
+
+[User Query]
+    ↓
+[Parallel Processing: Two branches]
+    ├── Branch A: BM25 Okapi (sparse retrieval)
+    │   └── Returns ranked document IDs with BM25 scores
+    │
+    └── Branch B: Semantic Search via ChromaDB (dense retrieval)
+        └── Returns ranked documents with cosine similarity scores
+
+[Both branches merge] → [RRF Fusion: score(d) = Σ 1/(k + rank)]
+    ↓
+[Top 5 Fused Results]
+    ↓
+[Cross-Encoder: ms-marco-MiniLM-L-6-v2]
+    ↓
+[Joint Scoring of Query-Document Pairs]
+    ↓
+[Top 3 Reranked Results with Scores]
+    ↓
+[Pass to Confidence Tier Evaluation]
+
+Professional technical diagram, color coded, include formula, arrows, wide landscape format.
+```
+
+---
+
+<b>Tips for Best Results:</b>
+
+1. Use DALL-E 3 for accurate text rendering in diagrams
+2. For Midjourney, add "--ar 16:9 --v 6" for wide format
+3. For Stable Diffusion, use SDXL models for better text
+4. Export as PNG at 300 DPI for print quality
+5. Use Microsoft Designer or Canva to refine the AI-generated image
+6. For perfect alignment, consider using draw.io (free) to recreate based on the layout
+

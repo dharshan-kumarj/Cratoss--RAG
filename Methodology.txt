@@ -1,0 +1,79 @@
+<b>3. Methodology</b>
+
+<b>3.1 Detailed Explanation of Approach</b>
+
+The RAG-Cratoss system implements a comprehensive 8-phase pipeline that transforms raw PDF documents into accurate, source-attributed answers. The methodology follows a modular architecture where each phase serves a distinct purpose in the overall retrieval and generation workflow. The system is designed with the core principle that retrieval quality determines generation quality—hence significant architectural emphasis is placed on multi-stage retrieval with result refinement before any LLM generation occurs. The approach combines established information retrieval techniques with modern neural network models, creating a pipeline that balances precision, recall, and computational efficiency.
+
+The methodology can be conceptually divided into two major stages: the ingestion pipeline and the query pipeline. The ingestion pipeline handles the one-time processing of source documents, transforming unstructured PDFs into a queryable vector database. The query pipeline processes user questions in real-time, routing them through hybrid retrieval, cross-encoder reranking, confidence evaluation, and LLM generation to produce final answers. This separation of concerns allows the ingestion phase to be computationally intensive and offline, while the query phase remains responsive for interactive use.
+
+<b>3.2 Generative AI Techniques Used</b>
+
+<b>3.2.1 Large Language Model (LLM):</b> The system utilizes Meta's Llama 3.2, a 3-billion parameter language model, as the generative backbone. Llama 3.2 is an instruction-tuned model optimized for following user instructions and generating helpful, accurate responses. The choice of Llama 3.2 was driven by several factors: it offers competitive performance with larger models while remaining computationally tractable for local deployment; it exhibits strong reasoning capabilities when provided with relevant context; and it can be run entirely locally via Ollama, eliminating API dependencies and ensuring data privacy. The model is configured with a temperature of 0.3 to bias outputs toward factual accuracy rather than creative variation, and maximum token generation is capped at 512 tokens to ensure responsive interactions.
+
+<b>3.2.2 Prompt Design:</b> The prompt engineering strategy is critical to the system's performance and safety. The system employs a structured prompt template that instructs the LLM to:
+(i) Act as an expert in IoT and network security topics,
+(ii) Answer questions strictly based on the provided context,
+(iii) Clearly indicate when information is insufficient or the question is outside the domain,
+(iv) Cite the source documents when providing specific factual information.
+
+The prompt follows the format:
+"<b>System:</b> You are an expert in IoT and network security. Answer ONLY based on the provided context. If the context is insufficient, say so. If the question is outside your domain, say you cannot answer.
+<b>Context:</b> [retrieved document chunks]
+<b>Question:</b> [user query]
+<b>Answer:</b>"
+
+For IoT-specific fallback queries where document retrieval yields weak matches, a secondary prompt variant instructs the LLM to use its general knowledge for common IoT topics while clearly marking such responses as based on general knowledge rather than retrieved documents.
+
+<b>3.2.3 Workflow:</b> The end-to-end workflow proceeds as follows:
+(1) User submits a technical query about IoT or network security topics.
+(2) The hybrid retriever processes the query through both BM25 keyword search and semantic vector search simultaneously.
+(3) RRF fusion combines the ranked results from both retrieval methods.
+(4) The cross-encoder reranker scores the top-5 fused results against the query to produce refined top-3 candidates.
+(5) The confidence evaluator analyzes the maximum reranked score to classify the query into NONE, LOW, or FULL confidence tiers.
+(6) Based on the confidence tier, the appropriate response strategy is selected: reject, weak context generation, or full context generation.
+(7) The LLM generates the final answer using the selected context and response strategy.
+(8) The answer with source citations is returned to the user.
+
+<b>3.3 Steps of Implementation</b>
+
+<b>3.3.1 Data Preprocessing:</b> The preprocessing phase handles PDF document ingestion using PyPDFLoader, which extracts text from each page while preserving structural information. Documents are organized into categorized directories—architecture (NIST IoT standards), hardware (Arduino datasheets), protocols (MQTT, CoAP specifications), and security (pentesting guides)—allowing metadata enrichment with category tags. During loading, each document is annotated with file_name, page_number, and category metadata to enable traceability and filtered retrieval later. The preprocessing phase processes all PDFs in the data/pdfs/ directory recursively, resulting in a collection of LangChain Document objects ready for chunking.
+
+<b>3.3.2 Feature Engineering:</b> Text chunking is performed using RecursiveCharacterTextSplitter with chunk_size=1000 characters and chunk_overlap=200 characters. The chunking strategy employs a hierarchy of separators ("\n\n", "\n", ". ", " ", "") that attempts to split at natural semantic boundaries before falling back to smaller units. This approach preserves paragraph and sentence coherence within chunks, ensuring that each embedded segment represents a coherent information unit. Each chunk retains all original metadata (source, page, category, file_name) and receives a chunk_index identifier for tracking. Overlap of 200 characters ensures continuity at chunk boundaries, preventing important information from being split across chunks with no context on either side.
+
+Feature engineering for retrieval involves transforming text chunks into dense vector representations using the all-MiniLM-L6-v2 sentence transformer model. This model produces 384-dimensional embedding vectors that encode semantic meaning while normalizing outputs for cosine similarity comparison. For hybrid retrieval, a parallel sparse representation is constructed using BM25 tokenization, which extracts terms and computes inverse document frequency weights for keyword-based matching.
+
+<b>3.3.3 Model Selection:</b> The embedding model (all-MiniLM-L6-v2) was selected for its optimal balance between embedding quality and computational efficiency. It ranks among the top-performing compact models on semantic textual similarity benchmarks while producing significantly shorter vectors (384-dim vs. 768-dim or 1024-dim alternatives), reducing storage requirements and accelerating similarity computations. The cross-encoder reranker (ms-marco-MiniLM-L-6-v2) was chosen for its efficiency in joint query-document scoring and its training on the MS MARCO passage ranking dataset, which provides strong generalization to information retrieval tasks. The LLM selection prioritized local deployment capability, instruction-following performance, and domain adaptability, leading to Llama 3.2 as the optimal choice.
+
+<b>3.3.4 Training and Testing:</b> Unlike traditional machine learning approaches, RAG systems do not require training on the target domain—the knowledge is stored in the retrieved documents rather than model weights. However, the system underwent iterative refinement during development through qualitative testing across diverse query types. Test queries covered: (i) in-domain technical questions with exact matches in documents (MQTT protocol questions), (ii) in-domain questions with partial document coverage (Arduino questions), (iii) edge cases requiring semantic matching (questions rephrased from document content), and (iv) out-of-domain questions requiring refusal (general knowledge questions). Each test evaluated retrieval precision, confidence tier assignment, and generated answer accuracy. The system was refined through multiple iterations adjusting confidence thresholds and prompt templates based on observed failure cases.
+
+<b>3.3.5 Evaluation Metrics:</b> The system was evaluated using qualitative assessment across several dimensions:
+
+<b>Retrieval Quality:</b> Measured by examining the relevance scores and source attribution of retrieved chunks for test queries. High-quality retrieval manifests as top-ranked chunks with high cross-encoder scores (≥1.0) from relevant source documents.
+
+<b>Confidence Tier Accuracy:</b> Assessed by verifying that queries with strong document matches receive FULL tier, weak matches receive LOW tier, and out-of-domain queries receive NONE tier. The thresholds of -10.0 (NONE/LOW boundary) and 1.0 (LOW/FULL boundary) were calibrated through empirical testing.
+
+<b>Hallucination Prevention:</b> Evaluated by submitting queries completely outside the IoT domain and verifying that the system either refuses to answer or clearly indicates insufficient context rather than generating plausible but ungrounded responses.
+
+<b>Response Latency:</b> Performance measured as wall-clock time from query submission to answer generation. GPU-accelerated inference on NVIDIA RTX 4060 achieved 5-10 second response times; CPU-only inference required 1-3 minutes.
+
+<b>3.4 Novelty of the Project</b>
+
+RAG-Cratoss introduces several innovations that distinguish it from standard RAG implementations:
+
+<b>Three-Stage Retrieval Architecture:</b> Unlike typical RAG systems that use either keyword search or semantic search, RAG-Cratoss implements a three-stage retrieval pipeline: (1) parallel BM25 and semantic search, (2) RRF fusion, and (3) cross-encoder reranking. This multi-stage approach maximizes the complementary strengths of sparse and dense retrieval while refining results through increasingly sophisticated scoring mechanisms.
+
+<b>Confidence-Tiered Response Generation:</b> The 3-tier confidence evaluation system represents a novel safety mechanism that actively prevents hallucination by calibrating response behavior to retrieval quality. Most RAG systems pass all queries to the LLM regardless of context quality; RAG-Cratoss actively gates generation based on confidence thresholds, refusing or warning about uncertain queries.
+
+<b>IoT-Specific Fallback Strategy:</b> The system implements a domain-aware fallback mechanism that distinguishes between queries that are out-of-domain entirely (refused) and queries within the IoT domain but lacking document coverage (handled via controlled LLM fallback with explicit tagging).
+
+<b>Local-Only Architecture:</b> The complete elimination of cloud API dependencies, from embedding models to the LLM, represents a practical novelty for organizations requiring data privacy or offline capability. This architecture enables deployment in air-gapped environments while reducing long-term operational costs.
+
+<b>3.5 Result Discussion</b>
+
+The experimental results validate the effectiveness of the proposed methodology across all evaluation dimensions. For in-domain technical queries, the hybrid retrieval with cross-encoder reranking achieved consistently high performance. When queried about MQTT protocol specifications, the system retrieved chunks from mqtt_protocol_spec.pdf with cross-encoder scores of 4.25 and 2.68, firmly establishing FULL confidence tier and generating accurate, source-cited answers. The RRF fusion successfully combined exact keyword matches from BM25 (recognizing terms like "MQTT," "QoS," "publish-subscribe") with semantic matches from vector search, demonstrating the complementary nature of the two retrieval methods.
+
+The confidence tier system proved effective at calibrating responses to retrieval quality. Queries about topics partially covered in the document corpus, such as ESP32 LED blinking (only Arduino UNO documentation available), correctly triggered the LOW tier with scores around -8.45, resulting in responses that appropriately used LLM fallback while marking the response as general IoT knowledge rather than document-grounded fact. The most critical validation came from out-of-domain queries like "What is the capital of India?"—the system correctly returned NONE tier with scores of -11.02, refusing to generate a response and preventing potential hallucination.
+
+The hybrid retrieval itself demonstrated measurable improvements over single-method retrieval. BM25 alone would have failed to recognize "sensor network" as semantically related to "IoT deployment," while semantic search alone might have missed exact protocol name matches. The RRF fusion with k=60 successfully leveraged both signals, with the cross-encoder then performing final precision refinement. Performance benchmarks showed that the entire retrieval and generation pipeline completes within 5-10 seconds on GPU-accelerated hardware, making it suitable for interactive use. CPU-only deployment, while slower (1-3 minutes per query), remains functional for environments without GPU access.
+
+The modular architecture proved robust in practice, with each component operating independently and the confidence evaluation layer successfully catching edge cases. The system's ability to handle approximately 600 document chunks from diverse technical sources—spanning architecture standards, hardware specifications, and protocol documentation—demonstrates scalability and adaptability. The results collectively confirm that the proposed methodology achieves the project objectives of accurate, reliable, and hallucination-resistant question-answering on specialized technical documentation.

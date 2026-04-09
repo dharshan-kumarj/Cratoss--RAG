@@ -1,0 +1,54 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:w="urn:schemas-microsoft-com:office:word"
+xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<meta name=ProgId content=Word.Document>
+<meta name=Generator content="Microsoft Word 15">
+<meta name=Originator content="Microsoft Word 15">
+<style>
+<!--
+ /* Font Definitions */
+@font-face
+	{font-family:"Times New Roman";
+	panose-1:2 6 3 4 5 4 5 2 3 4;
+	mso-font-alt:"Times New Roman";
+	mso-font-charset:0;
+	mso-generic-font-family:roman;
+	mso-font-format:other;
+	mso-font-pitch:variable;
+	mso-font-signature:3 0 0 0 1 0;}
+ /* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:10.0pt;
+	margin-left:0in;
+	text-align:justify;
+	text-indent:0in;
+	line-height:200%;
+	font-size:12.0pt;
+	font-family:"Times New Roman";}
+h1
+	{mso-style-update:auto;}
+-->
+</style>
+</head>
+<body lang=EN-US style='tab-interval:.5in'>
+<div class=Section1>
+
+<p class=MsoNormal align=center style='text-align:center'><b>Abstract</b></p>
+
+<p class=MsoNormal>RAG-Cratoss is a domain-specific question-answering system designed for IoT and network security documents, built on the Retrieval-Augmented Generation (RAG) architecture. The primary objective of this project was to develop an end-to-end pipeline that can accurately answer technical queries from domain-specific PDFs while minimizing hallucinations and ensuring source attribution. The system addresses a critical gap in existing QA systems where general-purpose language models often produce plausible but factually incorrect responses when queried about specialized technical domains. By constraining responses strictly to retrieved document context and implementing a robust confidence assessment mechanism, RAG-Cratoss ensures that answers are grounded in authoritative sources.</p>
+
+<p class=MsoNormal>The architecture follows an 8-phase pipeline that processes user queries through increasingly sophisticated filtering stages. The ingestion phase recursively loads PDF documents from categorized directories (architecture, hardware, protocols, and security) using PyPDF, enriching each document with metadata including source file, page number, and category tags. These documents are then split into semantically coherent chunks of 1000 characters with a 200-character overlap using RecursiveCharacterTextSplitter, which intelligently respects sentence and paragraph boundaries to preserve contextual integrity. Each chunk is embedded into a 384-dimensional vector space using the all-MiniLM-L6-v2 sentence transformer model and persisted in ChromaDB for fast similarity search. The current knowledge base comprises approximately 600 chunks extracted from authoritative sources including NIST SP 800-183 (IoT Architecture), Arduino UNO R3 datasheet, MQTT Protocol Specification V3.1, and CoAP RFC 7252.</p>
+
+<p class=MsoNormal>The retrieval and ranking subsystem represents the core innovation of this project, employing a three-tier approach to maximize retrieval accuracy. The hybrid retriever combines sparse keyword search via BM25Okapi with dense semantic search through ChromaDB's cosine similarity, then fuses the ranked results using Reciprocal Rank Fusion (RRF) with a smoothing factor of k=60. This fusion strategy leverages BM25's strength in exact keyword matching for technical terms like "MQTT," "CoAP," and "QoS" while capturing semantic relationships through the transformer embeddings. Following hybrid retrieval, a cross-encoder reranker (ms-marco-MiniLM-L-6-v2) performs a second-pass refinement by scoring each (query, document) pair jointly, capturing token-level interactions that dramatically improve precision on the candidate set.</p>
+
+<p class=MsoNormal>Post-reranking, a 3-tier confidence evaluation classifies each query based on the maximum cross-encoder score: FULL tier (score ≥ 1.0) triggers direct answer generation with citations, LOW tier (-10.0 ≤ score < 1.0) invokes LLM with contextual warnings about weak matches, and NONE tier (score < -10.0) either refuses out-of-domain queries or provides IoT-specific fallback using the LLM's parametric knowledge. The generation phase utilizes Meta's Llama 3.2 (3B parameters) running locally via Ollama, ensuring complete data privacy and eliminating API dependencies. Experimental results demonstrate that in-domain queries achieve FULL confidence with scores up to 4.25, while out-of-domain queries are correctly refused, and the system responds within 5-10 seconds on GPU-accelerated hardware.</p>
+
+<p class=MsoNormal>In conclusion, RAG-Cratoss successfully demonstrates that domain-specific RAG systems with hybrid retrieval, cross-encoder reranking, and confidence-aware response generation can achieve high accuracy while maintaining safety guardrails against hallucinations. The modular architecture allows for straightforward extension to additional document sources, and future work includes implementing a web-based chat interface, multi-turn conversation memory, and quantitative evaluation using BLEU, ROUGE, and faithfulness metrics. This project serves as a practical reference implementation for building production-grade RAG systems in specialized technical domains without relying on cloud-based API services.</p>
+
+</div>
+</body>
+</html>

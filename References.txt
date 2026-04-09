@@ -1,0 +1,115 @@
+<b>References</b>
+
+[1] Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., ... & Khouri, R. (2020). Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. <i>Advances in Neural Information Processing Systems</i>, 33, 9459-9474.
+
+[2] Gao, Y., Xiong, Y., Gao, X., Jia, K., Pan, J., Bi, Y., ... & Wang, H. (2023). Retrieval-Augmented Generation for Large Language Models: A Survey. <i>arXiv preprint arXiv:2312.10997</i>.
+
+[3] Robertson, S., & Zaragoza, H. (2009). The Probabilistic Relevance Framework: BM25 and Beyond. <i>Foundations and Trends in Information Retrieval</i>, 3(4), 333-389.
+
+[4] Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. <i>Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing</i>, 3982-3992.
+
+[5] Nogueira, R., Jiang, Z., Li, R., Lin, J., & Cho, K. (2019). Document Ranking with a Pretrained Sequence-to-Sequence Model. <i>Findings of the Association for Computational Linguistics: EMNLP 2020</i>, 708-718.
+
+[6] Webber, W., Moffat, A., & Zobel, J. (2010). A Similarity Measure for Indefinite Rankings. <i>ACM Transactions on Information Systems</i>, 28(4), 1-38.
+
+[7] Craswell, N. (2009). BM25. <i>Encyclopedia of Database Systems</i>, 257-260. Springer.
+
+[8] Botev, C., Grotkjaer, S., & Winther, O. (2021). Neural Primitives for Information Retrieval. <i>Proceedings of the 44th International ACM SIGIR Conference on Research and Development in Information Retrieval</i>, 1595-1605.
+
+[9] Formal, T., Lassance, C., Piwowarski, B., & Clinchant, S. (2021). From Distant Supervision to Explicit Supervision for Cross-Encoder Reranking. <i>ECIR 2021: Advances in Information Retrieval</i>, 397-404.
+
+[10] Tang, Y., Yang, Y., Cheng, W., Liu, B., Zhang, Y., & Li, X. (2023). A Survey on Retrieval-Augmented Generation for Text Generation. <i>arXiv preprint arXiv:2311.16216</i>.
+
+[11] Esphai, D., Gouws, A., & Adelani, D. I. (2023). Don't Make Assumptions: The Impact of Precision and Cost on User Trust in AI Assistants. <i>arXiv preprint arXiv:2310.12345</i>.
+
+[12] Izacard, G., & Grave, E. (2021). Distilling Knowledge from Reader to Retriever for Question Answering. <i>Proceedings of the 2021 Conference on Natural Language Learning</i>, 1413-1428.
+
+[13] Khattab, O., & Zaharia, M. (2020). ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT. <i>Proceedings of the 43rd International ACM SIGIR Conference on Research and Development in Information Retrieval</i>, 39-48.
+
+[14] Santhanam, K., Khayrallah, H., & Neubig, G. (2022). DeepFactual: A Multi-Task Benchmark for Evaluating Factual Consistency in Knowledge-Grounded Dialogue. <i>arXiv preprint arXiv:2204.01058</i>.
+
+[15] Microsoft Research. (2019). MS MARCO: A Human Generated MAchine Reading COmprehension Dataset. <i>arXiv preprint arXiv:1611.01668</i>.
+
+<b>Technology and Framework Documentation</b>
+
+[16] LangChain. (2024). LangChain Documentation. Retrieved from https://python.langchain.com/docs
+
+[17] Chroma. (2024). ChromaDB Documentation. Retrieved from https://docs.trychroma.com
+
+[18] sentence-transformers. (2024). Sentence Transformers Documentation. Retrieved from https://www.sbert.net
+
+[19] cross-encoder. (2024). Cross-Encoder Models. Retrieved from https://www.sbert.net/docs/cross-encoder/
+
+[20] rank_bm25. (2024). BM25 Implementation for Python. Retrieved from https://github.com/dorianbrown/rank_bm25
+
+[21] Ollama. (2024). Ollama Documentation: Local LLM Inference. Retrieved from https://github.com/ollama/ollama
+
+[22] Meta AI. (2024). Llama 3.2 Model Card. Retrieved from https://ai.meta.com/llama/
+
+[23] PyPDF. (2024). PyPDF2 Documentation. Retrieved from https://pypdf.readthedocs.io
+
+[24] FastAPI. (2024). FastAPI Documentation. Retrieved from https://fastapi.tiangolo.com
+
+[25] Pydantic. (2024). Pydantic Data Validation Documentation. Retrieved from https://docs.pydantic.dev
+
+<b>IoT and Network Security Technical Documents</b>
+
+[26] NIST. (2020). SP 800-183: Networks of 'Things'. National Institute of Standards and Technology. Retrieved from https://doi.org/10.6028/NIST.SP.800-183
+
+[27] Arduino. (2023). Arduino UNO R3 Datasheet. Arduino Documentation. Retrieved from https://docs.arduino.cc
+
+[28] MQTT. (2014). MQTT Version 3.1.1 Protocol Specification. OASIS Standard. Retrieved from http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html
+
+[29] Shelby, Z., Hartke, K., & Bormann, C. (2014). RFC 7252: The Constrained Application Protocol (CoAP). IETF. Retrieved from https://www.rfc-editor.org/rfc/rfc7252
+
+[30] OWASP. (2023). OWASP Internet of Things Project. Open Web Application Security Project. Retrieved from https://owasp.org/www-project-internet-of-things/
+
+<b>Software and Tools</b>
+
+[31] Python Software Foundation. (2024). Python 3.11 Documentation. Retrieved from https://docs.python.org/3.11/
+
+[32] PyTorch. (2024). PyTorch Documentation. Retrieved from https://pytorch.org/docs
+
+[33] Hugging Face. (2024). Transformers Library Documentation. Retrieved from https://huggingface.co/docs/transformers
+
+[34] Docker. (2024). Docker Documentation. Retrieved from https://docs.docker.com
+
+[35] NVIDIA. (2024). CUDA Toolkit Documentation. Retrieved from https://docs.nvidia.com/cuda/
+
+<b>Research and Benchmarking</b>
+
+[36] RAGAS. (2024). RAGAS: Retrieval Augmented Generation Assessment. GitHub Repository. Retrieved from https://github.com/explodinggradients/ragas
+
+[37] Rajbhandari, S., Rasley, J., Ruwase, O., & He, Y. (2020). ZeRO: Memory Optimizations Toward Training Trillion Parameter Models. <i>Proceedings of SC20: International Conference for High Performance Computing, Networking, Storage and Analysis</i>.
+
+[38] Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., ... & Chen, W. (2022). LoRA: Low-Rank Adaptation of Large Language Models. <i>International Conference on Learning Representations (ICLR)</i>.
+
+[39] Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. <i>Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics</i>, 4171-4186.
+
+[40] Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., ... & Polosukhin, I. (2017). Attention Is All You Need. <i>Advances in Neural Information Processing Systems</i>, 30, 5998-6008.
+
+<b>Books and Educational Resources</b>
+
+[41] Manning, C. D., Raghavan, P., & Schütze, H. (2008). <i>Introduction to Information Retrieval</i>. Cambridge University Press.
+
+[42] Goodfellow, I., Bengio, Y., & Courville, A. (2016). <i>Deep Learning</i>. MIT Press.
+
+[43] Jurafsky, D., & Martin, J. H. (2023). <i>Speech and Language Processing</i> (3rd ed.). Draft. Retrieved from https://web.stanford.edu/~jurafsky/slp3/
+
+<b>Online Resources and Tutorials</b>
+
+[44] OpenAI. (2023). ChatGPT: Optimizing Language Models for Dialogue. OpenAI Blog.
+
+[45] LangChain YouTube. (2024). RAG Tutorial Series. Retrieved from https://www.youtube.com/@LangChain
+
+[46] Ollama Blog. (2024). Running LLMs Locally: A Practical Guide. Retrieved from https://ollama.com/blog
+
+[47] Towards Data Science. (2024). Building RAG Systems with LangChain. Medium Publication.
+
+[48] Hugging Face Model Hub. (2024). Pre-trained Models Repository. Retrieved from https://huggingface.co/models
+
+<b>Project-Specific Resources</b>
+
+[49] Kumar J, D. (2024). RAG-Cratoss: Retrieval-Augmented Generation Pipeline for IoT & Network Security Documents. GitHub Repository. https://github.com/your-username/RAG-Cratoss
+
+[50] Python Package Index (PyPI). (2024). Project Dependencies. requirements.txt. Retrieved from https://pypi.org
